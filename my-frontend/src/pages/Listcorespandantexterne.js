@@ -19,7 +19,7 @@ function Listcorespandantexterne() {
         columnOrder={columnOrder}
         endpoint={endpoint}
         setData={setData}
-        fetchData={() => fetchData(endpoint, setData)}
+        fetchData={() => fetchData(endpoint, setData)} // pass fetch function
       />
     </div>
   );
