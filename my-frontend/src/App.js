@@ -9,7 +9,9 @@ import CourrierArrive from "./pages/CourrierArrive";
 import CourrierDepart from "./pages/CourrierDepart";
 import './styling.css';
 import CourrierSearch from "./components/CourrierSearch";
-import GroupsManagement from "./pages/GroupsManagement";
+import GroupsPage from "./pages/GroupsPage";
+import UsersPage from "./pages/UsersPage";
+
 function readCookie(name) {
   const value = document.cookie
     .split('; ')
@@ -50,10 +52,8 @@ function App() {
     );
   }
 
-
   const accessiblePagesStr = readCookie('accessiblePages');
   const accessiblePages = accessiblePagesStr ? accessiblePagesStr.split(',') : [];
-
 
   console.log('Accessible pages:', accessiblePages);
   console.log('Raw cookie value:', accessiblePagesStr);
@@ -63,13 +63,14 @@ function App() {
       <Bignavbar />
       <Routes>
         <Route path="/courrier/search" element={
-  accessiblePages.includes('CourrierSearch') ? 
-    <CourrierSearch /> : 
-    <div style={{ padding: '20px', textAlign: 'center' }}>
-      <h2>Access Denied</h2>
-      <p>You don't have permission to access this page.</p>
-    </div>
-} />
+          accessiblePages.includes('CourrierSearch') ? 
+            <CourrierSearch /> : 
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <h2>Access Denied</h2>
+              <p>You don't have permission to access this page.</p>
+            </div>
+        } />
+        
         <Route path="/CoresspondantExtern/*" element={
           accessiblePages.includes('CoresspondantExtern') ? 
             <CoresspondantExtern /> : 
@@ -114,6 +115,26 @@ function App() {
               <p>You don't have permission to access this page.</p>
             </div>
         } />
+
+        {/* Users management route - check for both ADMIN and GROUP_ADMIN */}
+        <Route path="/users/*" element={
+          (accessiblePages.includes('GROUP_ADMIN') || accessiblePages.includes('ADMIN')) ? 
+            <UsersPage /> : 
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <h2>Access Denied</h2>
+              <p>You don't have permission to access this page.</p>
+            </div>
+        } />
+        
+        {/* UPDATED: Groups management route - now uses GroupsPage instead of GroupsManagement */}
+        <Route path="/admin/groups/*" element={
+          (accessiblePages.includes('GROUP_ADMIN') || accessiblePages.includes('ADMIN')) ? 
+            <GroupsPage /> : 
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <h2>Access Denied</h2>
+              <p>You don't have permission to access this page.</p>
+            </div>
+        } />
         
         {/* Default route */}
         <Route path="/" element={
@@ -122,16 +143,6 @@ function App() {
             <p>Your accessible pages: {accessiblePages.join(', ')}</p>
           </div>
         } />
-
-
-<Route path="/admin/groups" element={
-  accessiblePages.includes('ADMIN') ? 
-    <GroupsManagement /> : 
-    <div style={{ padding: '20px', textAlign: 'center' }}>
-      <h2>Access Denied</h2>
-      <p>You don't have permission to access this page.</p>
-    </div>
-} />
       </Routes>
     </Router>
   );

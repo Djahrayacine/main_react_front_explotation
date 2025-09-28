@@ -1,96 +1,153 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import JsonTableAction from "../components/JsonTableAction";
 import { fetchData } from "../components/fetchdata";
+import FilterBar from "../components/FilterBar";
 
 function ListCourrierArrive() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // all rows & rows to display
+  const [allRows, setAllRows]         = useState([]);
+  const [displayRows, setDisplayRows] = useState([]);
 
+  // dropdown options for “nature”
+  const [natureOptions, setNatureOptions] = useState([
+    { value: "", label: "Tous" }
+  ]);
+
+  // loading / error
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  // your endpoints
+  const endpointCourrier = "http://localhost:8080/api/courrier/arrive";
+  const endpointNature   = "http://localhost:8080/api/nature-courrier/active";
+
+  // exact keys your table expects
   const columnOrder = [
     "id",
-    "objet", 
+    "objet",
     "dateCourrier",
     "ref_emission",
     "nature",
     "moyEnch",
     "correspondantExp",
     "correspondantDist",
-    "commentaire"
+    "num_ord",
+    "dateremise",
+    "datesystem",
+    "typeCourrier"
   ];
 
-  const endpoint = "http://localhost:8080/api/courrier/arrive";
-
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await fetchData(endpoint, setData);
-    } catch (err) {
-      setError("Erreur lors du chargement des données");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // ── 1) Load the “nature” list once ─────────────────────────
   useEffect(() => {
-    loadData();
+    axios
+      .get(endpointNature)
+      .then(resp => {
+        const opts = resp.data.map(n => ({
+          value: String(n.id),  // or n.code if you prefer
+          label: n.label
+        }));
+        setNatureOptions([{ value: "", label: "Tous" }, ...opts]);
+      })
+      .catch(err => {
+        console.error("Failed loading natures:", err);
+      });
   }, []);
 
-  const formattedData = data.map((item) => ({
-    ...item,
-    correspondantExp: item.correspondantExp?.name || "N/A",
-    correspondantDist: item.correspondantDist?.name || "N/A",
-    nature: item.nature?.label || item.nature?.nom || item.nature?.libelle || "N/A",
-    moyEnch: item.moyEnch?.label || item.moyEnch?.nom || item.moyEnch?.libelle || "N/A"
-  }));
+  // ── 2) Load & flatten your courriers ────────────────────────
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
 
+    fetchData(endpointCourrier, raw => {
+      const flat = raw.map(item => ({
+        id:              item.id,
+        objet:           item.objet || "N/A",
+        dateCourrier:    item.dateCourrier || "N/A",
+        ref_emission:    item.ref_emission || "N/A",
+        nature:          item.nature?.label || "N/A",
+        moyEnch:         item.moyEnch?.label || "N/A",
+        correspondantExp:  item.correspondantExp?.name || "N/A",
+        correspondantDist: item.correspondantDist?.name || "N/A",
+        num_ord:         String(item.num_ord ?? "N/A"),
+        dateremise:      item.dateremise || "N/A",
+        datesystem:      item.datesystem || "N/A",
+        typeCourrier:    item.typeCourrier?.label || "N/A"
+      }));
+
+      setAllRows(flat);
+      setDisplayRows(flat);
+      setLoading(false);
+    }).catch(() => {
+      setError("Erreur lors du chargement des données");
+      setLoading(false);
+    });
+  }, []);
+
+  // ── 3) Filtering handlers ───────────────────────────────────
+  const applyFilters = ({ natureFilter, searchField, searchTerm }) => {
+    let list = [...allRows];
+
+    if (natureFilter) {
+      const selectedLabel = natureOptions.find(n => n.value === natureFilter)?.label;
+      list = list.filter(r => r.nature === selectedLabel);
+    }
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(r =>
+        (r[searchField] || "").toLowerCase().includes(term)
+      );
+    }
+
+    setDisplayRows(list);
+  };
+
+  const resetFilters = () => {
+    setDisplayRows(allRows);
+  };
+
+  // ── 4) Render loading / error ───────────────────────────────
   if (loading) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        <p>Chargement en cours...</p>
-      </div>
-    );
+    return <p style={{ padding: 16, textAlign: "center" }}>Chargement…</p>;
   }
-
   if (error) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center", color: "red" }}>
-        <p>{error}</p>
-        <button onClick={loadData}>Réessayer</button>
-      </div>
-    );
+    return <p style={{ padding: 16, textAlign: "center", color: "red" }}>{error}</p>;
   }
 
+  // ── 5) Main render ─────────────────────────────────────────
   return (
-    <div style={{ padding: "2rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <h2>Liste des Courriers Arrivés</h2>
-        <button
-          onClick={loadData}
-          style={{
-            padding: "0.5rem 1rem",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer"
-          }}
-        >
-          Actualiser
-        </button>
+    <div style={{ padding: 16 }}>
+      <h2>Liste des Courriers Arrivés</h2>
+
+      <FilterBar
+        natureOptions={natureOptions}
+        searchFields={[
+          { value: "num_ord",          label: "N° d’Ordre" },
+          { value: "dateCourrier",     label: "Date" },
+          { value: "correspondantExp", label: "Expéditeur" },
+          { value: "correspondantDist",label: "Destinataire" }
+        ]}
+        onApply={applyFilters}
+        onReset={resetFilters}
+      />
+
+      <div style={{ maxHeight: "80vh", overflow: "auto" }}>
+        <div style={{ minWidth: 1000 }}>
+          {displayRows.length === 0 ? (
+            <p>Aucun courrier trouvé.</p>
+          ) : (
+            <JsonTableAction
+              data={displayRows}
+              columnOrder={columnOrder}
+              endpoint={endpointCourrier}
+              setData={setDisplayRows}
+              fetchData={() => setDisplayRows(allRows)}
+              tableStyle={{ whiteSpace: "nowrap" }}
+            />
+          )}
+        </div>
       </div>
-      {formattedData.length === 0 ? (
-        <p>Aucun courrier trouvé.</p>
-      ) : (
-        <JsonTableAction
-          data={formattedData}
-          columnOrder={columnOrder}
-          endpoint={endpoint}
-          setData={setData}
-          fetchData={loadData}
-        />
-      )}
     </div>
   );
 }

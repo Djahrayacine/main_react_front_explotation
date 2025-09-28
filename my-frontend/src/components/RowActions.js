@@ -17,12 +17,12 @@ function RowActions({ row, isOpen, onEdit, onDelete, onView }) {
       >
         🗑️ Supprimer
       </button>
-      <button 
+      {/* <button 
         className="action-btn view-btn"
         onClick={() => onView(row)}
       >
         ◉ Voir détails
-      </button>
+      </button> */}
     </div>
   );
 }

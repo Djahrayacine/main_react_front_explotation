@@ -1,0 +1,49 @@
+.sidebar {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  font-family: Arial, sans-serif;
+  width: 250px;
+  border-right: 1px solid #dee2e6;
+}
+
+.nav-toggle {
+  background: none;
+  border: none;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #0d6efd;
+  margin-bottom: 0.5rem;
+}
+
+.nav-sub {
+  list-style: none;
+  padding-left: 1rem;
+  margin: 0;
+}
+
+.nav-sub > li > button {
+  background: none;
+  border: none;
+  font-size: 0.95rem;
+  color: #333;
+  cursor: pointer;
+  margin: 0.3rem 0;
+}
+
+.nav-sub-sub {
+  list-style: none;
+  padding-left: 1rem;
+  margin-top: 0.3rem;
+}
+
+.nav-sub-sub li a {
+  text-decoration: none;
+  color: #555;
+  display: block;
+  padding: 0.2rem 0;
+}
+
+.nav-sub-sub li a:hover {
+  color: #0d6efd;
+}

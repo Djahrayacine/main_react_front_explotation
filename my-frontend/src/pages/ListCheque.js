@@ -13,7 +13,7 @@ function ListCheque() {
     "titulaire",
     "devise",
     "estCertifie",
-    "courrier" // will likely show as [object Object] unless we format it
+    "courrier"
   ];
   const endpoint = "http://localhost:8080/api/cheques";
 

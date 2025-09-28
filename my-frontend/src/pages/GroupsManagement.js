@@ -1,158 +1,67 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import JsonTableAction from "../components/JsonTableAction";
 
 const GroupsManagement = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
   const API_BASE = 'http://localhost:8081/api';
 
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      
-      const response = await fetch(`${API_BASE}/admin/groups`, {
-        credentials: 'include',  // This sends cookies
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      const res = await fetch(`${API_BASE}/admin/groups`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Transform data for the table - flatten accessiblePages
-      const transformedData = data.map(group => ({
-        ...group,
-        accessiblePages: Array.isArray(group.accessiblePages) 
-          ? group.accessiblePages.join(', ') 
-          : ''
+      if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+      const raw = await res.json();
+      const formatted = raw.map(g => ({
+        ...g,
+        accessiblePages: Array.isArray(g.accessiblePages) ? g.accessiblePages.join(', ') : ''
       }));
-      
-      setGroups(transformedData);
+      setGroups(formatted);
       setError('');
     } catch (err) {
-      setError(`Failed to fetch groups: ${err.message}`);
-      console.error('Error fetching groups:', err);
+      setError(`Échec du chargement: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper function to get cookie
-  const getCookie = (name) => {
-    const value = document.cookie
-      .split('; ')
-      .find(row => row.startsWith(name + '='))
-      ?.split('=')[1] || '';
-    return value;
-  };
+  useEffect(() => { fetchGroups(); }, []);
 
-  useEffect(() => {
-    fetchGroups();
-  }, []);
-
-  // Column order for the table
   const groupColumns = ['id', 'name', 'description', 'accessiblePages'];
 
-  if (loading) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Loading groups...</p>
-      </div>
-    );
-  }
+  if (loading) return <div style={{ padding: 20, textAlign: 'center' }}>Chargement...</div>;
 
-  if (error) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <div style={{ 
-          padding: '15px', 
-          backgroundColor: '#fee', 
-          color: '#c33', 
-          border: '1px solid #fcc',
-          borderRadius: '5px',
-          marginBottom: '20px'
-        }}>
-          {error}
-        </div>
-        <button onClick={fetchGroups} style={{
-          padding: '10px 20px',
-          backgroundColor: '#007bff',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}>
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (error) return (
+    <div style={{ padding: 20, textAlign: 'center' }}>
+      <div style={{ background: '#fee', color: '#c33', padding: 15, borderRadius: 5 }}>{error}</div>
+      <button onClick={fetchGroups} style={{ marginTop: 10, padding: '8px 16px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: 4 }}>
+        Réessayer
+      </button>
+    </div>
+  );
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ 
-          color: '#333', 
-          borderBottom: '2px solid #007bff', 
-          paddingBottom: '10px',
-          marginBottom: '10px'
-        }}>
-          Groups Management
-        </h1>
-        <p style={{ color: '#666', fontSize: '16px' }}>
-          Manage user groups and their accessible pages
-        </p>
-      </div>
+    <div style={{ padding: 20 }}>
+      <h2 style={{ marginBottom: 10, borderBottom: '2px solid #0d6efd', paddingBottom: 5 }}>Gestion des groupes</h2>
 
       {groups.length === 0 ? (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          border: '1px solid #dee2e6'
-        }}>
-          <h3 style={{ color: '#6c757d', marginBottom: '10px' }}>No Groups Found</h3>
-          <p style={{ color: '#6c757d' }}>Start by creating your first group</p>
+        <div style={{ textAlign: 'center', padding: 40, color: '#666' }}>
+          <h3>Aucun groupe trouvé</h3>
+          <p>Commencez par en créer un</p>
         </div>
       ) : (
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          overflow: 'hidden'
-        }}>
-          <JsonTableAction
-            data={groups}
-            columnOrder={groupColumns}
-            endpoint={`${API_BASE}/admin/groups`}
-            setData={setGroups}
-            fetchData={fetchGroups}
-          />
-        </div>
+        <JsonTableAction
+          data={groups}
+          columnOrder={groupColumns}
+          endpoint={`${API_BASE}/admin/groups`}
+          setData={setGroups}
+          fetchData={fetchGroups}
+        />
       )}
-
-      <div style={{ 
-        marginTop: '30px', 
-        padding: '15px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '5px',
-        border: '1px solid #dee2e6'
-      }}>
-        <h4 style={{ color: '#495057', marginBottom: '10px' }}>Instructions:</h4>
-        <ul style={{ color: '#6c757d', paddingLeft: '20px' }}>
-          <li>Click the menu (⋮) on each row to Edit, Delete, or View group details</li>
-          <li>Use "Créer" to add a new group</li>
-          <li>Accessible Pages should be comma-separated (e.g., "CourrierArrive,CourrierDepart")</li>
-          <li>Make sure to assign appropriate pages for each user group</li>
-        </ul>
-      </div>
     </div>
   );
 };

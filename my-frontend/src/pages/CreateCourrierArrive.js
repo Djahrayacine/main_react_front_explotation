@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const DynamicCourierForm = ({ courierType = 'arrive' }) => {
-  // Main courier data
-  const [courierData, setCourierData] = useState({
+const CreateCourrierArrive = () => {
+  const [formData, setFormData] = useState({
     objet: '',
     dateCourrier: '',
+    dateremise: '',
+    datesystem: new Date().toISOString().split('T')[0], // Auto-set to today
     ref_emission: '',
+    num_ord: '',
     natureId: '',
     moyEnchId: '',
+    typeCourrieId: '', // Added
     idExp: '',
-    idDist: '',
-    numPli: courierType === 'depart' ? '' : undefined
+    idDist: ''
   });
 
   // Content selection (what the courier contains)
@@ -26,55 +28,46 @@ const DynamicCourierForm = ({ courierType = 'arrive' }) => {
   const [fauxBillets, setFauxBillets] = useState([]);
   const [documents, setDocuments] = useState([]);
 
-  // Dropdown options
   const [dropdownOptions, setDropdownOptions] = useState({
-    nature: [],
+    natures: [],
     moyEnch: [],
+    typeCourriers: [],
     correspondants: []
   });
 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   // Load dropdown options
-useEffect(() => {
-  const loadOptions = async () => {
-    try {
-      const [natureRes, moyEnchRes, interneRes, externeRes] = await Promise.all([
-        axios.get('http://localhost:8080/api/nature-courrier'),
-        axios.get('http://localhost:8080/api/moyen-enchainement'),
-        axios.get('http://localhost:8080/api/correspondants/interne'),
-        axios.get('http://localhost:8080/api/correspondants/externe')
-      ]);
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const [naturesRes, moyEnchRes, typeCourrierRes, interneRes, externeRes] = await Promise.all([
+          axios.get('http://localhost:8080/api/nature-courrier'),
+          axios.get('http://localhost:8080/api/moyen-enchainement'),
+          axios.get('http://localhost:8080/api/type-courrier'),
+          axios.get('http://localhost:8080/api/correspondants/interne'),
+          axios.get('http://localhost:8080/api/correspondants/externe')
+        ]);
 
-      // Add debug logs to see what we get
-      console.log('Nature data:', natureRes.data);
-      console.log('MoyEnch data:', moyEnchRes.data);
-      console.log('Interne data:', interneRes.data);
-      console.log('Externe data:', externeRes.data);
+        setDropdownOptions({
+          natures: naturesRes.data,
+          moyEnch: moyEnchRes.data,
+          typeCourriers: typeCourrierRes.data,
+          correspondants: [...interneRes.data, ...externeRes.data]
+        });
+      } catch (err) {
+        setError('Erreur lors du chargement des options');
+        console.error('Error loading options:', err);
+      }
+    };
 
-      // Combine internal and external correspondants
-      const allCorrespondants = [
-        ...interneRes.data,
-        ...externeRes.data
-      ];
+    loadOptions();
+  }, []);
 
-      console.log('Combined correspondants:', allCorrespondants);
-
-      setDropdownOptions({
-        nature: natureRes.data,
-        moyEnch: moyEnchRes.data,
-        correspondants: allCorrespondants
-      });
-    } catch (error) {
-      console.error('Error loading dropdown options:', error);
-    }
-  };
-
-  loadOptions();
-}, []);
-
-  // Handle courier basic field changes
-  const handleCourierChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setCourierData(prev => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -157,167 +150,231 @@ useEffect(() => {
     ));
   };
 
-  // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    setLoading(true);
+    setError('');
+
+    // Combine form data with dynamic content
     const submitData = {
-      ...courierData,
+      ...formData,
       cheques: selectedContent.cheques ? cheques : [],
       fauxBillets: selectedContent.fauxBillets ? fauxBillets : [],
       documents: selectedContent.documents ? documents : []
     };
 
     try {
-      const endpoint = `http://localhost:8080/api/courrier/${courierType}`;
-      console.log('Submitting:', submitData);
-      
-      const response = await axios.post(endpoint, submitData);
-      alert('✅ Courrier créé avec succès!');
+      await axios.post('http://localhost:8080/api/courrier/arrive', submitData);
+      alert('Courrier arrivé créé avec succès!');
       
       // Reset form
-      setCourierData({
+      setFormData({
         objet: '',
         dateCourrier: '',
+        dateremise: '',
+        datesystem: new Date().toISOString().split('T')[0], // Reset to current date
         ref_emission: '',
+        num_ord: '',
         natureId: '',
         moyEnchId: '',
+        typeCourrieId: '',
         idExp: '',
-        idDist: '',
-        numPli: courierType === 'depart' ? '' : undefined
+        idDist: ''
       });
+      
+      // Reset content
       setSelectedContent({ cheques: false, fauxBillets: false, documents: false });
       setCheques([]);
       setFauxBillets([]);
       setDocuments([]);
-      
-    } catch (error) {
-      console.error('Error:', error);
-      alert('❌ Erreur lors de la création');
+    } catch (err) {
+      setError('Erreur lors de la création du courrier');
+      console.error('Error creating courrier:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="courier-form-container">
-      <h2>Créer un Courrier {courierType === 'arrive' ? 'Arrivé' : 'Départ'}</h2>
+      <h2>Créer un Courrier Arrivé</h2>
       
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
-        {/* Basic Courier Information */}
-        <div className="courier-basic-info">
-          <h3>Informations de base</h3>
+        <div className="form-grid">
           
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Objet:</label>
-              <input
-                type="text"
-                name="objet"
-                value={courierData.objet}
-                onChange={handleCourierChange}
-                required
-              />
-            </div>
+          <div className="form-group">
+            <label>
+              Objet *
+            </label>
+            <input
+              type="text"
+              name="objet"
+              value={formData.objet}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Date Courrier:</label>
-              <input
-                type="date"
-                name="dateCourrier"
-                value={courierData.dateCourrier}
-                onChange={handleCourierChange}
-                required
-              />
-            </div>
+          <div className="form-group">
+            <label>
+              Date Courrier *
+            </label>
+            <input
+              type="date"
+              name="dateCourrier"
+              value={formData.dateCourrier}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Référence d'émission:</label>
-              <input
-                type="text"
-                name="ref_emission"
-                value={courierData.ref_emission}
-                onChange={handleCourierChange}
-              />
-            </div>
+          <div className="form-group">
+            <label>
+              Date Remise
+            </label>
+            <input
+              type="date"
+              name="dateremise"
+              value={formData.dateremise}
+              onChange={handleChange}
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Nature:</label>
-              <select
-                name="natureId"
-                value={courierData.natureId}
-                onChange={handleCourierChange}
-                required
-              >
-                <option value="">Sélectionner...</option>
-                {dropdownOptions.nature.map(option => (
-                  <option key={option.id} value={option.id}>
-                    {option.label || option.nom || option.libelle}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-group">
+            <label>
+              Date Système (lecture seule)
+            </label>
+            <input
+              type="date"
+              name="datesystem"
+              value={formData.datesystem}
+              readOnly
+              className="disabled-field"
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Moyen d'enchaînement:</label>
-              <select
-                name="moyEnchId"
-                value={courierData.moyEnchId}
-                onChange={handleCourierChange}
-                required
-              >
-                <option value="">Sélectionner...</option>
-                {dropdownOptions.moyEnch.map(option => (
-                  <option key={option.id} value={option.id}>
-                    {option.label || option.nom || option.libelle}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-group">
+            <label>
+              Référence d'émission
+            </label>
+            <input
+              type="text"
+              name="ref_emission"
+              value={formData.ref_emission}
+              onChange={handleChange}
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Expéditeur:</label>
-              <select
-                name="idExp"
-                value={courierData.idExp}
-                onChange={handleCourierChange}
-                required
-              >
-                <option value="">Sélectionner...</option>
-                {dropdownOptions.correspondants.map(option => (
-                  <option key={option.id || option.idCC} value={option.id || option.idCC}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-group">
+            <label>
+              Numéro d'ordre
+            </label>
+            <input
+              type="text"
+              name="num_ord"
+              value={formData.num_ord}
+              onChange={handleChange}
+            />
+          </div>
 
-            <div className="form-group">
-              <label>Destinataire:</label>
-              <select
-                name="idDist"
-                value={courierData.idDist}
-                onChange={handleCourierChange}
-                required
-              >
-                <option value="">Sélectionner...</option>
-                {dropdownOptions.correspondants.map(option => (
-                  <option key={option.id || option.idCC} value={option.id || option.idCC}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="form-group">
+            <label>
+              Nature *
+            </label>
+            <select
+              name="natureId"
+              value={formData.natureId}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Sélectionner...</option>
+              {dropdownOptions.natures.map(nature => (
+                <option key={nature.id} value={nature.id}>
+                  {nature.label || nature.nom || nature.libelle}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {courierType === 'depart' && (
-              <div className="form-group">
-                <label>Numéro de pli:</label>
-                <input
-                  type="number"
-                  name="numPli"
-                  value={courierData.numPli}
-                  onChange={handleCourierChange}
-                />
-              </div>
-            )}
+          <div className="form-group">
+            <label>
+              Type de courrier
+            </label>
+            <select
+              name="typeCourrieId"
+              value={formData.typeCourrieId}
+              onChange={handleChange}
+            >
+              <option value="">Sélectionner...</option>
+              {dropdownOptions.typeCourriers.map(type => (
+                <option key={type.id} value={type.id}>
+                  {type.label || type.nom || type.libelle}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Moyen d'enchaînement *
+            </label>
+            <select
+              name="moyEnchId"
+              value={formData.moyEnchId}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Sélectionner...</option>
+              {dropdownOptions.moyEnch.map(moyen => (
+                <option key={moyen.id} value={moyen.id}>
+                  {moyen.label || moyen.nom || moyen.libelle}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Expéditeur *
+            </label>
+            <select
+              name="idExp"
+              value={formData.idExp}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Sélectionner...</option>
+              {dropdownOptions.correspondants.map(corresp => (
+                <option key={corresp.id || corresp.idCC} value={corresp.id || corresp.idCC}>
+                  {corresp.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>
+              Destinataire *
+            </label>
+            <select
+              name="idDist"
+              value={formData.idDist}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Sélectionner...</option>
+              {dropdownOptions.correspondants.map(corresp => (
+                <option key={corresp.id || corresp.idCC} value={corresp.id || corresp.idCC}>
+                  {corresp.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -356,8 +413,6 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Dynamic Content Forms */}
-        
         {/* Cheques Section */}
         {selectedContent.cheques && (
           <div className="content-section">
@@ -561,10 +616,13 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Submit Button */}
         <div className="form-actions">
-          <button type="submit" className="submit-btn">
-            Créer le Courrier
+          <button
+            type="submit"
+            disabled={loading}
+            className="submit-btn"
+          >
+            {loading ? 'Création en cours...' : 'Créer le Courrier'}
           </button>
         </div>
       </form>
@@ -572,4 +630,4 @@ useEffect(() => {
   );
 };
 
-export default DynamicCourierForm;
+export default CreateCourrierArrive;

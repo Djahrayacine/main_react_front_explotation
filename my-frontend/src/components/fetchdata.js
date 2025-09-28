@@ -3,9 +3,11 @@ import axios from "axios";
 
 export const fetchData = async (url, setData) => {
   try {
-    const response = await axios.get(url);
-    setData(response.data);
+    const { data } = await axios.get(url);
+    setData(data);
+    return data;
   } catch (error) {
     console.error(`Error fetching data from ${url}:`, error);
+    throw error;
   }
 };

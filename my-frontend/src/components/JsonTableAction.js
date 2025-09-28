@@ -3,20 +3,25 @@ import RowActions from "./RowActions";
 import deleteItem from "./deleteItem";
 import axios from "axios";
 import ModalForm from "./ModalForm";
-import {findIdKey} from "./findIdKey";
-function JsonTableAction({ data, columnOrder = null, endpoint, setData,fetchData }) {
+import { findIdKey } from "./findIdKey";
+
+function JsonTableAction({ data, columnOrder = null, endpoint, setData, fetchData }) {
   const [openMenuIndex, setOpenMenuIndex] = useState(null);
-  // modal states
-  const [isModalOpen, setIsModalOpen] = useState(false); // Controls modal visibility
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRow, setEditingRow] = useState(null);
-  //+++++++++++++++++++++++++++++++++++
+
+  // 🧠 Sorting state
+  const [sortField, setSortField] = useState(null);
+  const [sortAsc, setSortAsc] = useState(true);
+
   if (!data || data.length === 0) {
     return <p>no data ❌</p>;
   }
 
-  // CHANGE: Use columnOrder instead of Object.keys
+  // 🧱 Columns to display
   const columns = columnOrder || Object.keys(data[0]);
 
+  // 🔁 Toggle row menu
   const toggleMenu = (rowIndex) => {
     setOpenMenuIndex(openMenuIndex === rowIndex ? null : rowIndex);
   };
@@ -24,61 +29,84 @@ function JsonTableAction({ data, columnOrder = null, endpoint, setData,fetchData
   const handleClickOutside = () => {
     setOpenMenuIndex(null);
   };
-  // In JsonTableAction.js
-async function handleDelete(row) {
-  const idKey = findIdKey(row);   // e.g. "IDCC"
-  const idValue = row[idKey];     // e.g. 42
 
-  const result = await deleteItem(endpoint, idValue);
+  // 🗑️ Delete handler
+  async function handleDelete(row) {
+    const idKey = findIdKey(row);
+    const idValue = row[idKey];
+    const result = await deleteItem(endpoint, idValue);
 
-  if (result.success) {
-    alert("✅ Deleted successfully!");
-    const response = await axios.get(endpoint);
-    setData(response.data);
-  } else {
-    alert("❌ Delete failed!");
+    if (result.success) {
+      alert("✅ Deleted successfully!");
+      const response = await axios.get(endpoint);
+      setData(response.data);
+    } else {
+      alert("❌ Delete failed!");
+    }
   }
-}
+
+  // ✏️ Modal handlers
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setEditingRow(null); // Reset editing row
+    setEditingRow(null);
   };
+
   const handleOpenModal = (row) => {
     setEditingRow(row);
-    setOpenMenuIndex(null); // Always close menu when opening modal
+    setOpenMenuIndex(null);
     setIsModalOpen(true);
   };
+
+  // 🔼 Sort handler
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  // 🧠 Sort data before rendering
+  const sortedData = [...data].sort((a, b) => {
+    if (!sortField) return 0;
+    const valA = String(a[sortField] || "").toLowerCase();
+    const valB = String(b[sortField] || "").toLowerCase();
+    return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+  });
+
   return (
-    <div
-      style={{ padding: "1rem", overflow: "visible" }}
-      onClick={handleClickOutside}
-    >
+    <div style={{ padding: "1rem", overflow: "visible" }} onClick={handleClickOutside}>
       <table onClick={(e) => e.stopPropagation()}>
-     <ModalForm
+        <ModalForm
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           fields={columnOrder}
           endpoint={endpoint}
           initialData={editingRow}
           onSuccess={() => {
-            // close modal and refresh list
             handleCloseModal();
             if (typeof fetchData === "function") fetchData();
           }}
         />
         <thead>
           <tr>
-            {/* CHANGE: Use columns instead of Object.keys(data[0]) */}
             {columns.map((key) => (
-              <th key={key}>{key}</th>
+              <th
+                key={key}
+                onClick={() => handleSort(key)}
+                style={{ cursor: "pointer", userSelect: "none" }}
+              >
+                {key}
+                {sortField === key && (sortAsc ? " 🔼" : " 🔽")}
+              </th>
             ))}
             <th key="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((row, rowindex) => (
+          {sortedData.map((row, rowindex) => (
             <tr key={rowindex}>
-              {/* CHANGE: Use columns.map instead of Object.values */}
               {columns.map((key, cellindex) => (
                 <td key={cellindex}>{String(row[key] || "")}</td>
               ))}
@@ -96,13 +124,13 @@ async function handleDelete(row) {
                   <RowActions
                     row={row}
                     isOpen={openMenuIndex === rowindex}
-                    onEdit={handleOpenModal} // Use the new handler here
+                    onEdit={handleOpenModal}
                     onDelete={(row) => {
-                      setOpenMenuIndex(null); // Also close menu for delete
+                      setOpenMenuIndex(null);
                       handleDelete(row);
                     }}
                     onView={(row) => {
-                      setOpenMenuIndex(null); // Close menu for view
+                      setOpenMenuIndex(null);
                       alert(`View: ${row.name}`);
                     }}
                   />
